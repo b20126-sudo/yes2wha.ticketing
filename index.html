@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>yes2화 티켓 예매 연습</title>
+    <style>
+        /* 화면 전체를 정중앙으로 정렬하는 설정 */
+        body { 
+            font-family: 'Malgun Gothic', sans-serif; 
+            margin: 0; 
+            padding: 20px; 
+            background-color: #f4f4f4; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; /* 가로 세로 모두 정중앙 정렬 */
+            min-height: 100vh; 
+            box-sizing: border-box; 
+        }
+        
+        #app-container { 
+            width: 100%; 
+            max-width: 800px; 
+            min-height: 600px; 
+            height: auto; 
+            background: white; 
+            border: 1px solid #ccc; 
+            box-shadow: 0 0 15px rgba(0,0,0,0.2); 
+            position: relative; 
+            display: flex; 
+            flex-direction: column; 
+            overflow: hidden; 
+            border-radius: 8px;
+        }
+        
+        /* 헤더 스타일 (화면 상단 고정) */
+        .header { width: 100%; background: #333; color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; box-sizing: border-box; z-index: 10; position: sticky; top: 0; }
+        .header h1 { margin: 0; font-size: 20px; }
+
+        .screen { display: none; width: 100%; flex-grow: 1; padding: 40px 20px; box-sizing: border-box; flex-direction: column; align-items: center; justify-content: center; overflow-y: auto; }
+        .active { display: flex; }
+        
+        /* 공통 버튼 스타일 */
+        button { padding: 12px 24px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; font-weight: bold; }
+        .btn-purple { background-color: #6a0dad; color: white; transition: background-color 0.2s; }
+        .btn-purple:hover { background-color: #550a8b; }
+        .btn-purple:disabled { background-color: #ccc; color: #666; cursor: not-allowed; }
+
+        /* 화면 1: 초기 예매 대기 화면 */
+        #screen-1 { text-align: center; }
+        #timer-display { font-size: 32px; font-weight: bold; color: red; margin-bottom: 20px; }
+
+        /* 화면 1.5: 달력 화면 */
+        #screen-calendar { text-align: center; }
+        .calendar { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; max-width: 400px; margin: 20px auto; background: #fff; border: 1px solid #ddd; padding: 10px; }
+        .day-name { font-weight: bold; padding: 10px; background: #eee; }
+        .day { padding: 15px; border: 1px solid #eee; text-align: center; color: #ccc; }
+        .day.today { background-color: #6a0dad; color: white; cursor: pointer; font-weight: bold; box-shadow: 0 0 5px rgba(106, 13, 173, 0.5); }
+        .day.today:hover { background-color: #ffeb3b; color: #333; }
+
+        /* 화면 2: 대기열 및 진행바 (Progress Bar) */
+        #screen-2 { text-align: center; width: 100%; }
+        #queue-number { font-size: 60px; font-weight: bold; margin: 20px 0; color: #333; }
+        
+        #progress-container { width: 80%; max-width: 500px; height: 25px; background-color: #e0e0e0; border-radius: 15px; margin: 20px auto; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
+        #progress-bar { width: 100%; height: 100%; background-color: #6a0dad; transition: width 0.8s linear, background-color 0.3s; }
+        .bg-blue { background-color: #2196F3 !important; } /* 1/5 남았을 때 변할 파란색 */
+
+        /* 화면 3: 보안코드 */
+        #screen-3 { text-align: center; }
+        #captcha-display { font-size: 40px; font-weight: bold; letter-spacing: 5px; background: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAAKCAYAAACNMs+9AAAAOklEQVQYV2NkYGAwYKQQMA4iQBFQZGRgYGBkQBFQZEQWwKYQyEIUBjIUXYEiD2IpiK4gVoWkqCAeBQD6iQcE1QdMHgAAAABJRU5ErkJggg=='); padding: 20px; margin: 20px 0; color: #333; text-decoration: line-through; display: inline-block; }
+        #captcha-input { font-size: 20px; padding: 10px; text-transform: uppercase; text-align: center; width: 200px; }
+
+        /* 화면 4: 좌석 선택 */
+        #screen-4 { justify-content: flex-start; }
+        .seat-map-container { background: #e0e0e0; padding: 20px; border-radius: 10px; margin-bottom: 20px; text-align: center; width: 100%; max-width: 600px; box-sizing: border-box; }
+        .seat-map { display: grid; grid-template-columns: repeat(20, 1fr); gap: 4px; justify-content: center; margin-top: 15px; }
+        .seat { aspect-ratio: 1/1; width: 100%; cursor: pointer; border-radius: 3px; transition: background-color 0.2s; }
+        .seat.unavailable { background-color: #999; cursor: not-allowed; }
+        .seat.available { background-color: #4a148c; }
+        .seat.selected { background-color: #ffeb3b; border: 2px solid #f44336; box-sizing: border-box; }
+        #complete-btn { display: none; margin: 0 auto; }
+
+        /* 화면 5: 성공 모달 */
+        #screen-5 { text-align: center; }
+        #screen-5 img { max-width: 300px; margin-bottom: 20px; }
+
+        /* 화면 6: 실패 모달 */
+        #screen-fail { text-align: center; }
+        #screen-fail h1 { color: #d32f2f; font-size: 40px; margin-bottom: 10px; }
+        #screen-fail p { font-size: 18px; color: #555; margin-bottom: 30px; }
+    </style>
+</head>
+<body>
+
+<div id="app-container">
+    <div class="header">
+        <h1>yes2화</h1>
+        <div id="nav-steps">관람일/회차 > 좌석선택 > 결제방법</div>
+    </div>
+
+    <div id="screen-1" class="screen active">
+        <h2>티켓 오픈 카운트다운</h2>
+        <div id="timer-display">남은시간 00:05</div>
+        <button id="book-btn" class="btn-purple" disabled>예매 대기중</button>
+    </div>
+
+    <div id="screen-calendar" class="screen">
+        <h2>관람일 선택</h2>
+        <p>예매 가능한 날짜를 선택해주세요. (당일만 예매 가능)</p>
+        <h3 id="calendar-month-title"></h3>
+        <div class="calendar" id="calendar-grid">
+            </div>
+    </div>
+
+    <div id="screen-2" class="screen">
+        <h2>나의 대기순서</h2>
+        <div id="queue-number">0</div>
+        
+        <div id="progress-container">
+            <div id="progress-bar"></div>
+        </div>
+
+        <p style="color:#666;">접속 인원이 많아 대기 중입니다.<br>새로고침을 하시면 대기 순서가 초기화됩니다.</p>
+    </div>
+
+    <div id="screen-3" class="screen">
+        <h2 style="color: blue;">문자를 입력해주세요</h2>
+        <p>부정예매 방지를 위한 보안코드입니다.</p>
+        <div id="captcha-display">RASSYH</div><br>
+        <input type="text" id="captcha-input" placeholder="여기에 입력하세요" maxlength="6"><br>
+        <button id="captcha-btn" class="btn-purple" style="margin-top: 20px;">입력완료</button>
+    </div>
+
+    <div id="screen-4" class="screen">
+        <h2>STAGE</h2>
+        <div class="seat-map-container">
+            <p style="margin: 0 0 10px 0; font-size: 15px; font-weight: bold; color: #333;">보라색 좌석만 클릭 가능합니다.</p>
+            <div class="seat-map" id="seat-map">
+                </div>
+        </div>
+        <button id="complete-btn" class="btn-purple">좌석선택 완료</button>
+    </div>
+
+    <div id="screen-5" class="screen">
+	<h1 style="color: #6a0dad;">예매 성공!</h1>
+        <img src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSwifQltCsnpwWWGM1veJBosTMv0mqINxk2YKj2YsdP6w&s=10" alt="축하의 댄스" id="dance-img">
+	<h2>      </h2>
+        <button id="reset-btn" class="btn-purple">창 닫고 처음으로 돌아가기</button>
+    </div>
+
+    <div id="screen-fail" class="screen">
+        <h1>예매 실패ㅜㅜ</h1>
+	<img src="https://i.pinimg.com/236x/3e/bc/aa/3ebcaa834b19da40341a3d3812ebce11.jpg" alt="축하의 댄스" id="dance-img">
+        <p>선택 가능한 모든 좌석이 매진되었습니다.<br>다음 기회를 노려주세요.</p>
+        <button id="fail-reset-btn" class="btn-purple">처음으로 돌아가기</button>
+    </div>
+
+</div>
+
+<script>
+    window.onload = function() {
+        const screens = document.querySelectorAll('.screen');
+        let timerInterval;
+        let queueInterval;
+        let currentCaptcha = "";
+
+        // --- 화면 전환 함수 ---
+        function showScreen(screenId) {
+            screens.forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            document.getElementById('app-container').scrollTop = 0; 
+        }
+
+        // --- Step 1: 5초 타이머 로직 ---
+        let secondsLeft = 5;
+        document.getElementById('timer-display').innerText = `남은시간 00:0${secondsLeft}`;
+        
+        timerInterval = setInterval(() => {
+            secondsLeft--;
+            if (secondsLeft <= 0) {
+                clearInterval(timerInterval);
+                document.getElementById('timer-display').innerText = "예매가 오픈되었습니다!";
+                const bookBtn = document.getElementById('book-btn');
+                bookBtn.disabled = false;
+                bookBtn.innerText = "예매하기";
+                bookBtn.onclick = startCalendar;
+            } else {
+                document.getElementById('timer-display').innerText = `남은시간 00:0${secondsLeft}`;
+            }
+        }, 1000);
+
+        // --- Step 1.5: 달력 로직 ---
+        function startCalendar() {
+            showScreen('screen-calendar');
+            const today = new Date();
+            document.getElementById('calendar-month-title').innerText = `${today.getFullYear()}년 ${today.getMonth() + 1}월`;
+            
+            const calendarGrid = document.getElementById('calendar-grid');
+            calendarGrid.innerHTML = ''; 
+            
+            const days = ['일', '월', '화', '수', '목', '금', '토'];
+            days.forEach(d => {
+                const div = document.createElement('div');
+                div.className = 'day-name';
+                div.innerText = d;
+                calendarGrid.appendChild(div);
+            });
+
+            for (let i = 1; i <= 31; i++) {
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'day';
+                dayDiv.innerText = i;
+                if (i === today.getDate()) {
+                    dayDiv.classList.add('today');
+                    dayDiv.title = "예매 가능";
+                    dayDiv.onclick = startQueue; 
+                } else {
+                    dayDiv.title = "예매 불가";
+                }
+                calendarGrid.appendChild(dayDiv);
+            }
+        }
+
+        // --- Step 2: 대기열 로직 (진행바 및 파란색 변경 추가) ---
+        function startQueue() {
+            showScreen('screen-2');
+            
+            let maxQueueCount = Math.floor(Math.random() * 9000) + 1000;
+            let queueCount = maxQueueCount;
+            
+            document.getElementById('queue-number').innerText = queueCount.toLocaleString();
+            
+            const progressBar = document.getElementById('progress-bar');
+            progressBar.style.width = '100%';
+            progressBar.classList.remove('bg-blue'); // 초기화
+
+            queueInterval = setInterval(() => {
+                queueCount -= Math.floor(Math.random() * 500) + 100;
+                
+                if (queueCount <= 0) {
+                    queueCount = 0;
+                    document.getElementById('queue-number').innerText = queueCount.toLocaleString();
+                    progressBar.style.width = '0%';
+                    clearInterval(queueInterval);
+                    
+                    // 게이지가 다 줄어든 후 살짝 대기하고 넘어감
+                    setTimeout(startCaptcha, 400);
+                } else {
+                    document.getElementById('queue-number').innerText = queueCount.toLocaleString();
+                    
+                    // 남은 비율(%) 계산
+                    let percentage = (queueCount / maxQueueCount) * 100;
+                    progressBar.style.width = percentage + '%';
+                    
+                    // 1/5 (20%) 남았을 때 파란색으로 변경
+                    if (percentage <= 20) {
+                        progressBar.classList.add('bg-blue');
+                    }
+                }
+            }, 800);
+        }
+
+        // --- Step 3: 보안코드 로직 ---
+        function generateCaptcha() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+            let result = '';
+            for (let i = 0; i < 6; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        function startCaptcha() {
+            showScreen('screen-3');
+            currentCaptcha = generateCaptcha();
+            document.getElementById('captcha-display').innerText = currentCaptcha;
+            document.getElementById('captcha-input').value = '';
+            document.getElementById('captcha-input').focus();
+        }
+
+        document.getElementById('captcha-btn').onclick = () => {
+            const input = document.getElementById('captcha-input').value.toUpperCase();
+            if (input === currentCaptcha.toUpperCase()) {
+                startSeatSelection();
+            } else {
+                alert("보안코드가 틀렸습니다. 다시 입력해주세요.");
+                startCaptcha(); 
+            }
+        };
+
+        // --- Step 4: 좌석 선택 및 이선좌/소멸 로직 (확률 20% 및 대량 소멸 반영) ---
+        function startSeatSelection() {
+            showScreen('screen-4');
+            const seatMap = document.getElementById('seat-map');
+            seatMap.innerHTML = ''; 
+
+            for (let i = 0; i < 100; i++) {
+                const seat = document.createElement('div');
+                seat.classList.add('seat');
+                
+                // 처음엔 40% 정도 확률로 보라색 자리 생성 (조금 더 많게 보이도록)
+                if (Math.random() > 0.6) {
+                    seat.classList.add('available');
+                    seat.onclick = () => handleSeatClick(seat);
+                } else {
+                    seat.classList.add('unavailable');
+                }
+                seatMap.appendChild(seat);
+            }
+        }
+
+        function handleSeatClick(seatElement) {
+            if (!seatElement.classList.contains('available')) return;
+
+            // 80% 확률로 이선좌 발생 (성공 확률 20%로 상향)
+            if (Math.random() < 0.8) {
+                alert("이미 선택된 좌석입니다.");
+                
+                // 1. 내가 클릭한 자리 회색으로 만들기
+                seatElement.classList.remove('available');
+                seatElement.classList.add('unavailable');
+                seatElement.onclick = null;
+
+                // 2. 다른 보라색 자리들도 '팍팍' 소멸시키기 (한 번에 10~20개 무작위 삭제)
+                let availableSeats = document.querySelectorAll('.seat.available');
+                let removeCount = Math.floor(Math.random() * 11) + 10; // 10부터 20사이의 난수
+                let seatsToRemove = Math.min(availableSeats.length, removeCount); 
+
+                for(let i = 0; i < seatsToRemove; i++) {
+                    let currentAvailable = document.querySelectorAll('.seat.available');
+                    if (currentAvailable.length === 0) break;
+                    
+                    let randomIndex = Math.floor(Math.random() * currentAvailable.length);
+                    let targetSeat = currentAvailable[randomIndex];
+                    
+                    targetSeat.classList.remove('available');
+                    targetSeat.classList.add('unavailable');
+                    targetSeat.onclick = null;
+                }
+
+                // 3. 남은 보라색 자리가 0개라면 '예매 실패' 창 띄우기
+                if (document.querySelectorAll('.seat.available').length === 0) {
+                    showScreen('screen-fail');
+                }
+
+            } else {
+                // 20% 확률로 성공
+                document.querySelectorAll('.seat').forEach(s => s.classList.remove('selected'));
+                seatElement.classList.add('selected');
+                document.getElementById('complete-btn').style.display = 'block';
+            }
+        }
+
+        document.getElementById('complete-btn').onclick = () => {
+            showScreen('screen-5');
+        };
+
+        // --- Step 5, 6: 리셋 로직 ---
+        const resetApp = () => { location.reload(); };
+        document.getElementById('reset-btn').onclick = resetApp;
+        document.getElementById('fail-reset-btn').onclick = resetApp;
+    };
+</script>
+</body>
+</html>
